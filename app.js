@@ -2,7 +2,8 @@ require('dotenv').config();
 const express = require('express');
 var fs = require('fs-extra');
 var path = require('path');
-import { v4 as uuidv4 } from 'uuid';
+const { v4: uuidv4 } = require('uuid');
+const cors = require('cors')
 const app = express();
 
 /**
@@ -19,6 +20,7 @@ MongoClient.connect(url, function (err, client) {
   db = client.db(dbName);
 });
 
+app.use(cors())
 app.use('/covers', express.static('covers'));
 app.use(express.json());
 
