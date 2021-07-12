@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+var fs = require('fs-extra');
+var path = require('path');
 import { v4 as uuidv4 } from 'uuid';
 const app = express();
 
@@ -17,6 +19,7 @@ MongoClient.connect(url, function (err, client) {
   db = client.db(dbName);
 });
 
+app.use('/covers', express.static('covers'));
 app.use(express.json());
 
 app.get('/arts', async (req, res) => {
@@ -32,7 +35,7 @@ app.get('/arts', async (req, res) => {
 app.get('/art', async (req, res) => {
   try {
     const art = await db
-      .collection('designer')
+      .collection('arts')
       .find({ code: req.query.code })
       .toArray();
     res.status(200).json(art);
@@ -45,14 +48,25 @@ app.get('/art', async (req, res) => {
 app.post('/art', async (req, res) => {
   try {
     if (req.body.code) {
+      if (req.body.base64) {
+        let base64Image = req.body.base64.split(';base64,').pop();
+        var png = new Buffer.from(base64Image, 'base64');
+        fs.writeFileSync(
+          path.join(__dirname, 'covers', req.body.code + '.png'),
+          png,
+          {
+            encoding: 'base64',
+          },
+        );
+      }
       let art = await db
-        .collection('designer')
+        .collection('arts')
         .find({ code: req.body.code })
         .toArray();
 
       if (art.length > 0) {
-        var newvalues = { $set: req.body };
-        db.collection('designer').updateOne(
+        var newvalues = { $set: {name:req.body.name, json: req.body.json, cover: '/covers/'+req.body.code+'.png'} };
+        db.collection('arts').updateOne(
           { code: req.body.code },
           newvalues,
           function (err, res) {
@@ -61,16 +75,37 @@ app.post('/art', async (req, res) => {
           },
         );
       } else {
-        var myobj = req.body;
-        db.collection('designer').insertOne(myobj, function (err, res) {
+        var myobj = {
+          code: req.body.code,
+          name: req.body.name,
+          json: req.body.json,
+          cover: '/covers/' + req.body.code + '.png',
+        };
+        db.collection('arts').insertOne(myobj, function (err, res) {
           if (err) throw err;
           res.status(200).json({ inserted: true });
         });
       }
     } else {
-      var myobj = req.body;
-      myobj.code = uuidv4();
-      db.collection('designer').insertOne(myobj, function (err, res) {
+      var code = uuidv4();
+      if (req.body.base64) {
+        let base64Image = req.body.base64.split(';base64,').pop();
+        var png = new Buffer.from(base64Image, 'base64');
+        fs.writeFileSync(
+          path.join(__dirname, 'covers', code + '.png'),
+          png,
+          {
+            encoding: 'base64',
+          },
+        );
+      }
+      var myobj = {
+        name: req.body.name,
+        json: req.body.json,
+        code : code,
+        cover: '/covers/' + code + '.png',
+      };
+      db.collection('arts').insertOne(myobj, function (err, res) {
         if (err) throw err;
         res.status(200).json({ inserted: true });
       });
