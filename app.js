@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+import { v4 as uuidv4 } from 'uuid';
 const app = express();
 
 /**
@@ -30,7 +31,10 @@ app.get('/arts', async (req, res) => {
 
 app.get('/art', async (req, res) => {
   try {
-    const art = await db.collection('designer').find({ code:req.query.code }).toArray();
+    const art = await db
+      .collection('designer')
+      .find({ code: req.query.code })
+      .toArray();
     res.status(200).json(art);
   } catch (err) {
     console.log(err);
@@ -40,18 +44,32 @@ app.get('/art', async (req, res) => {
 
 app.post('/art', async (req, res) => {
   try {
-    let art = await db.collection('designer').find({ code:req.query.code }).toArray();
-
-    if(art.length > 0) {
-      var newvalues = { $set: req.body };
-      db
+    if (req.body.code) {
+      let art = await db
         .collection('designer')
-        .updateOne({code:req.body.code}, newvalues, function (err, res) {
+        .find({ code: req.body.code })
+        .toArray();
+
+      if (art.length > 0) {
+        var newvalues = { $set: req.body };
+        db.collection('designer').updateOne(
+          { code: req.body.code },
+          newvalues,
+          function (err, res) {
+            if (err) throw err;
+            res.status(200).json({ updated: true });
+          },
+        );
+      } else {
+        var myobj = req.body;
+        db.collection('designer').insertOne(myobj, function (err, res) {
           if (err) throw err;
-          res.status(200).json({updated:true})
+          res.status(200).json({ inserted: true });
         });
+      }
     } else {
       var myobj = req.body;
+      myobj.code = uuidv4();
       db.collection('designer').insertOne(myobj, function (err, res) {
         if (err) throw err;
         res.status(200).json({ inserted: true });
